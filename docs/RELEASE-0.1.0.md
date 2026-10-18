@@ -13,7 +13,7 @@ First independent Sigma Rescale Neo package for Forge Neo and ComfyUI.
 
 On the inspected Forge Neo checkout (base commit `91e2881b`, with existing local modifications):
 
-- 39 CPU tests passed, including native scheduler/Euler/PNG parser integration and real Gradio paste fields.
+- 41 CPU tests passed, including native scheduler/Euler/PNG parser integration and real Gradio paste fields.
 - 9 isolated browser checks passed at desktop and narrow widths, with no page errors.
 - 80 private compatibility cases matched the installed Simple transform bit-for-bit.
 - 96 private compatibility cases matched the installed Full transform bit-for-bit.

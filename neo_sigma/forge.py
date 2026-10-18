@@ -59,12 +59,24 @@ class ScheduleHook:
                                  "panel before using Neo, to avoid applying the transform twice.")
             hires = is_hires(processing)
             chosen = settings.for_pass(hires)
+            params = processing.extra_generation_params
+            phase = "Hires" if hires else "main"
+            # A processing object can span a batch: do not attach the previous
+            # image's Hires/hash diagnostics to the next main-pass image.
+            for reset_phase in (("Hires",) if hires else ("main", "Hires")):
+                for suffix in ("hash", "first", "last", "sigma count"):
+                    params.pop(f"{PREFIX} {reset_phase} {suffix}", None)
+                params[f"{PREFIX} {reset_phase} applied"] = False
             incoming = self.previous(sampler, processing, steps)
+            # This also marks Hires-only Advanced images as incompatible with
+            # an old Simple reader, even though their main pass is untouched.
+            if not hires:
+                aliases = {k: v for k, v in settings.metadata().items() if not k.startswith(PREFIX)}
+                params.update(aliases)
+                setattr(processing, ALIASES_ATTR, aliases)
             if chosen is None:
                 return incoming
             outgoing = transform(incoming, chosen)
-            phase = "Hires" if hires else "main"
-            params = processing.extra_generation_params
             params[f"{PREFIX} {phase} applied"] = outgoing is not incoming
             params[f"{PREFIX} {phase} sigma count"] = outgoing.numel()
             if outgoing is not incoming:
@@ -73,12 +85,6 @@ class ScheduleHook:
                 params[f"{PREFIX} {phase} hash"] = digest
                 params[f"{PREFIX} {phase} first"] = outgoing[0].item()
                 params[f"{PREFIX} {phase} last"] = outgoing[-1].item()
-            # Emit compatibility aliases only after schedule construction, so a
-            # disabled old plugin cannot erase them during its process callback.
-            if not hires:
-                aliases = {k: v for k, v in settings.metadata().items() if not k.startswith(PREFIX)}
-                params.update(aliases)
-                setattr(processing, ALIASES_ATTR, aliases)
             return outgoing
 
         self.wrapper = get_sigmas

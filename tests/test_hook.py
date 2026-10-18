@@ -59,6 +59,22 @@ class HookTests(unittest.TestCase):
         self.assertIs(self.sampler.get_sigmas(self.p, 3), self.stock)
         self.assertFalse(self.p.extra_generation_params[PREFIX + ' main applied'])
 
+    def test_hires_only_does_not_enable_simple_reader(self):
+        prepare(self.p, Settings(True, advanced=True, passes='Hires only'))
+        self.assertIs(self.sampler.get_sigmas(self.p, 3), self.stock)
+        self.assertFalse(self.p.extra_generation_params['Sigma Rescale'])
+
+    def test_batch_diagnostics_do_not_carry_previous_hires_into_next_image(self):
+        prepare(self.p, Settings(True, advanced=True, passes='Main + Hires'))
+        self.sampler.get_sigmas(self.p, 3)
+        self.p.is_hr_pass = True
+        self.sampler.get_sigmas(self.p, 3)
+        self.assertTrue(self.p.extra_generation_params[PREFIX + ' Hires applied'])
+        self.p.is_hr_pass = False
+        self.sampler.get_sigmas(self.p, 3)
+        self.assertFalse(self.p.extra_generation_params[PREFIX + ' Hires applied'])
+        self.assertNotIn(PREFIX + ' Hires hash', self.p.extra_generation_params)
+
     def test_disabling_clears_only_our_previous_metadata(self):
         prepare(self.p, Settings(True))
         self.sampler.get_sigmas(self.p, 3)
