@@ -40,6 +40,9 @@ def build_controls():
             gr.Markdown("These reshape the schedule; they are not a skin enhancer or sharpening filter. "
                         "Compare one change at a time with a fixed seed.")
             with gr.Group(visible=False) as advanced_group:
+                slider("begin_percent", "Begin applying at (% of steps)", 0, 100,
+                       "0% = full run. 50% = first half unchanged, then fade in. 100% = no adjustment. "
+                       "Completed steps are rounded up. Later starts are not a composition lock.", step=1)
                 with gr.Row():
                     slider("strength", "Strength", 0, 1, "1 = full remap; 0 = original scheduler, not a softer preset.")
                     slider("curve", "Curve", 0.1, 10, "1 = linear. Above 1 moves interior sigmas toward End; below 1 toward Start.")
@@ -48,6 +51,8 @@ def build_controls():
                 controls["passes"] = gr.Dropdown(choices=list(PASSES), value=DEFAULTS["passes"], label="Apply to")
                 controls["separate_hires"] = gr.Checkbox(value=False, label="Use separate Hires settings")
                 with gr.Group(visible=False) as hires_group:
+                    slider("hires_begin_percent", "Hires begin applying at (% of steps)", 0, 100,
+                           "Counts only the steps actually sampled in the Hires pass, then fades in.", step=1)
                     with gr.Row():
                         slider("hires_start", "Hires Start", -10, 10, "Maximum for the Hires pass.")
                         slider("hires_end", "Hires End", -10, 10, "Minimum for the Hires pass.")

@@ -135,7 +135,8 @@ class HostTests(unittest.TestCase):
         with gr.Blocks(analytics_enabled=False):
             controls, fields = build_controls()
         basic = Settings(True, .93, .03)
-        advanced = Settings(True, .93, .03, True, .7, 1.1, True, 'Main + Hires', True, .8, .01, .6, .9, True)
+        advanced = Settings(True, .93, .03, True, .7, 1.1, True, 'Main + Hires', True, .8, .01, .6, .9, True,
+                            begin_percent=60, hires_begin_percent=75)
         cases = [(basic, basic.metadata()), (advanced, advanced.metadata()), (Settings(), {})]
         cases.append((basic, {'Sigma Rescale': True, 'Sigma Rescale start': .93, 'Sigma Rescale end': .03}))
         cases.append((advanced, {label: getattr(advanced, key) for key, label in FULL_LABELS.items()}))

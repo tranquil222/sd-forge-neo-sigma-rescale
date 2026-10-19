@@ -1,6 +1,9 @@
 """A removable, request-local adapter around Forge's constructed schedules."""
 from functools import wraps
+from contextvars import ContextVar
 import hashlib
+import inspect
+import math
 import torch
 
 from .settings import PREFIX, Settings
@@ -44,6 +47,9 @@ class ScheduleHook:
             old.close()
         self.sampler_class = sampler_class
         self.previous = sampler_class.get_sigmas
+        self.previous_img2img = getattr(sampler_class, "sample_img2img", None)
+        self.img2img_context = ContextVar("neo_sigma_img2img", default=None)
+        self.img2img_wrapper = None
         self.active = True
 
         @wraps(self.previous)
@@ -64,7 +70,7 @@ class ScheduleHook:
             # A processing object can span a batch: do not attach the previous
             # image's Hires/hash diagnostics to the next main-pass image.
             for reset_phase in (("Hires",) if hires else ("main", "Hires")):
-                for suffix in ("hash", "first", "last", "sigma count"):
+                for suffix in ("hash", "first", "last", "sigma count", "unchanged steps"):
                     params.pop(f"{PREFIX} {reset_phase} {suffix}", None)
                 params[f"{PREFIX} {reset_phase} applied"] = False
             incoming = self.previous(sampler, processing, steps)
@@ -76,7 +82,29 @@ class ScheduleHook:
                 setattr(processing, ALIASES_ATTR, aliases)
             if chosen is None:
                 return incoming
-            outgoing = transform(incoming, chosen)
+            sample_start = 0
+            if 0 < chosen.begin_percent < 100 and chosen.strength > 0:
+                sampler_function = getattr(sampler, "func", None)
+                if callable(sampler_function):
+                    arguments = inspect.signature(sampler_function).parameters
+                    if not {"sigmas", "sigma_sched"}.intersection(arguments):
+                        raise ValueError("Sigma Rescale Neo: late application needs a sampler accepting an "
+                                         "explicit sigma schedule. Endpoint-only/adaptive samplers cannot "
+                                         "honor a percentage of steps.")
+            if chosen.begin_percent > 0:
+                context = self.img2img_context.get()
+                if context is not None and context[0] is sampler and context[1] is processing:
+                    from modules.sd_samplers_common import setup_img2img_steps
+                    planned_steps, encoded_steps = setup_img2img_steps(processing, context[2])
+                    if planned_steps != steps:
+                        raise ValueError("Sigma Rescale Neo: img2img step planning changed; cannot locate "
+                                         "the late-application boundary reliably.")
+                    # Use Python's exact slice normalization, including a negative
+                    # start when the host requests an unusually short schedule.
+                    sample_start = slice(steps - encoded_steps - 1, None).indices(incoming.numel())[0]
+            outgoing = transform(incoming, chosen, sample_start=sample_start)
+            params[f"{PREFIX} {phase} unchanged steps"] = math.ceil(
+                max(0, incoming.numel() - sample_start - 1) * chosen.begin_percent / 100)
             params[f"{PREFIX} {phase} applied"] = outgoing is not incoming
             params[f"{PREFIX} {phase} sigma count"] = outgoing.numel()
             if outgoing is not incoming:
@@ -89,11 +117,27 @@ class ScheduleHook:
 
         self.wrapper = get_sigmas
         sampler_class.get_sigmas = get_sigmas
+        if self.previous_img2img is not None:
+            @wraps(self.previous_img2img)
+            def sample_img2img(sampler, processing, *args, **kwargs):
+                if not self.active or not getattr(processing, REQUEST_ATTR, Settings()).enabled:
+                    return self.previous_img2img(sampler, processing, *args, **kwargs)
+                bound = inspect.signature(self.previous_img2img).bind(sampler, processing, *args, **kwargs)
+                token = self.img2img_context.set((sampler, processing, bound.arguments.get("steps")))
+                try:
+                    return self.previous_img2img(sampler, processing, *args, **kwargs)
+                finally:
+                    self.img2img_context.reset(token)
+
+            self.img2img_wrapper = sample_img2img
+            sampler_class.sample_img2img = sample_img2img
         setattr(sampler_class, OWNER_ATTR, self)
 
     def close(self):
         self.active = False
         if self.sampler_class.get_sigmas is self.wrapper:
             self.sampler_class.get_sigmas = self.previous
+        if self.img2img_wrapper is not None and self.sampler_class.sample_img2img is self.img2img_wrapper:
+            self.sampler_class.sample_img2img = self.previous_img2img
         if getattr(self.sampler_class, OWNER_ATTR, None) is self:
             delattr(self.sampler_class, OWNER_ATTR)

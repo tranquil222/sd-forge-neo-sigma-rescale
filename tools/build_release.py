@@ -5,6 +5,10 @@ import json
 from pathlib import Path
 import subprocess
 import zipfile
+import sys
+
+sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
+from neo_sigma import __version__
 
 
 def main():
@@ -16,7 +20,7 @@ def main():
         raise SystemExit('Commit the intended source changes before building a release.')
     target = args.destination.resolve()
     target.mkdir(parents=True, exist_ok=True)
-    archive = target / 'sigma-rescale-neo-0.1.0-preview.zip'
+    archive = target / f'sigma-rescale-neo-{__version__}-preview.zip'
     if archive.exists():
         raise SystemExit(f'Archive already exists: {archive}')
     subprocess.run(['git', 'archive', '--format=zip', '--prefix=sd-forge-neo-sigma-rescale/',

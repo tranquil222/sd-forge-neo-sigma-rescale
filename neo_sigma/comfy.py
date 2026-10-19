@@ -19,11 +19,13 @@ class SigmaRescaleNeo:
             "strength": ("FLOAT", {"default": 1.0, "min": 0.0, "max": 1.0, "step": 0.01}),
             "curve": ("FLOAT", {"default": 1.0, "min": 0.1, "max": 10.0, "step": 0.01}),
             "final_zero": ("BOOLEAN", {"default": False}),
+        }, "optional": {
+            "begin_percent": ("FLOAT", {"default": 0.0, "min": 0.0, "max": 100.0, "step": 1.0}),
         }}
 
     def apply(self, sigmas, enabled=True, start=0.9, end=0.0, advanced=False,
-              strength=1.0, curve=1.0, final_zero=False):
+              strength=1.0, curve=1.0, final_zero=False, begin_percent=0.0):
         if not enabled:
             return (sigmas,)
-        settings = Range(start, end, strength, curve, final_zero) if advanced else Range(start, end)
+        settings = Range(start, end, strength, curve, final_zero, begin_percent) if advanced else Range(start, end)
         return (transform(sigmas, settings),)

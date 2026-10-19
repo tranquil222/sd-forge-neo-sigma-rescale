@@ -25,6 +25,8 @@ class Settings:
     hires_strength: float = 1.0
     hires_curve: float = 1.0
     hires_final_zero: bool = False
+    begin_percent: float = 0.0
+    hires_begin_percent: float = 0.0
 
     def for_pass(self, hires: bool):
         if not self.enabled:
@@ -35,7 +37,7 @@ class Settings:
             raise ValueError("Select Main only, Main + Hires, or Hires only")
         if (hires and self.passes == "Main only") or (not hires and self.passes == "Hires only"):
             return None
-        keys = ("start", "end", "strength", "curve", "final_zero")
+        keys = ("start", "end", "strength", "curve", "final_zero", "begin_percent")
         prefix = "hires_" if hires and self.separate_hires else ""
         return Range(**{k: getattr(self, prefix + k) for k in keys}).validate()
 
@@ -65,6 +67,8 @@ FULL_LABELS = {
     "separate_hires": "Sigma Rescale Full separate Hires", "hires_start": "Sigma Rescale Full Hires start",
     "hires_end": "Sigma Rescale Full Hires end", "hires_strength": "Sigma Rescale Full Hires strength",
     "hires_curve": "Sigma Rescale Full Hires curve", "hires_final_zero": "Sigma Rescale Full Hires final zero",
+    "begin_percent": "Sigma Rescale Full begin percent",
+    "hires_begin_percent": "Sigma Rescale Full Hires begin percent",
 }
 
 

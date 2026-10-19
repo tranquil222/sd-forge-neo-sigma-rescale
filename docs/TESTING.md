@@ -26,4 +26,8 @@ python tools/ui_preview.py
 
 It binds only to localhost port 7877 (`SIGMA_PREVIEW_PORT` overrides it), does not open a browser automatically and never connects to a running Forge server.
 
-Before calling a release production-ready, run real-model txt2img/img2img/Hires smoke tests on the intended host/model combinations and compare saved PNG restoration. Those full-GPU and cross-host image-quality tests are not claimed for v0.1.0.
+Set `SIGMA_FULL_REFERENCE` to an existing local `sigma_rescale_full_core.py` to run
+the optional 768-case Full compatibility matrix. That third-party implementation
+is not bundled. Missing references cause explicit skips, not false passes.
+
+Before calling a release production-ready, run real-model txt2img/img2img/Hires smoke tests on the intended host/model combinations and compare saved PNG restoration. Those full-GPU and cross-host image-quality tests are not claimed for v0.2.0.
